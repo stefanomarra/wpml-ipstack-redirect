@@ -11,6 +11,9 @@ License: GPL2
 
 class WPML_IPStack_Redirect
 {
+
+	private $client_geolocation_details = false;
+
 	/**
 	 * Initialize
 	 */
@@ -88,15 +91,34 @@ class WPML_IPStack_Redirect
 	function get_client_geolocation_details() {
 		$ip = $this->get_client_ip();
 		$api_key = $this->get_api_key();
-		$details = json_decode(file_get_contents("http://api.ipstack.com/{$ip}?access_key={$api_key}&format=1"));
 
-		return $details;
+		if ( $this->client_geolocation_details ) {
+			return $this->client_geolocation_details;
+		}
+
+		$this->client_geolocation_details = json_decode(file_get_contents("http://api.ipstack.com/{$ip}?access_key={$api_key}&format=1"));
+
+		return $this->client_geolocation_details;
 	}
 
 	function get_country_code_by_ip() {
 		$details = $this->get_client_geolocation_details();
 
 		return strtolower($details->country_code);
+	}
+
+	function get_language_code_by_ip() {
+		$details = $this->get_client_geolocation_details();
+
+		if ( !is_array($details->location->languages) ) {
+			return false;
+		}
+
+		foreach ($details->location->languages as $lang) {
+			return strtolower($lang->code);
+		}
+
+		return false;
 	}
 
 	function redirect_ip_country() {
@@ -116,7 +138,10 @@ class WPML_IPStack_Redirect
 		if ( $this->get_api_key() && !isset($_COOKIE['icl_ip_to_country_check']) ) {
 
 			// Grab the language code from ip e.g. es
-			$lang_code_from_ip = $this->get_country_code_by_ip();
+			$lang_code_from_ip = $this->get_language_code_by_ip();
+			if ( !$lang_code_from_ip ) {
+				$lang_code_from_ip = $this->get_country_code_by_ip();
+			}
 
 			// Get the current post, page language code
 			// $_post = wpml_get_language_information( $post->ID );
