@@ -5,10 +5,20 @@ class WPML_IPStack_Redirect_Admin_Page
 {
 	var $api_key;
 	var $default_language;
+	var $geolocation_providers;
 
 
-	function __construct( $api_key ){
+	function __construct( $api_key, $geolocation_provider = null ){
 		$this->api_key = $api_key;
+		$this->geolocation_provider = $geolocation_provider;
+
+		$this->geolocation_providers = [
+			'IPStack' => 'IPStack'
+		];
+
+		if ( class_exists('WC_Geolocation') ) {
+			$this->geolocation_providers['WC_Geolocation'] = 'WooCommerce Geolocation';
+		}
 	}
 
 
@@ -23,8 +33,24 @@ class WPML_IPStack_Redirect_Admin_Page
 			<form method="post" action="options-general.php?page=wpml_ipstack_redirect_settings" id="options_form" >
 				<?php
 				echo '<table class="form-table" >';
+
+				if ( count(array_keys($this->geolocation_providers)) > 1 ) {
+
+					echo "<tr>
+							<th scope='row'>Geolocation Provider</th>
+							<td>
+								<select name='wpml_ipstack_redirect_geolocation_provider'  class='regular-text' style='width: 300px;'>";
+								foreach (array_keys($this->geolocation_providers) as $key) {
+									echo "<option value='{$key}' " . ($key==$this->geolocation_provider?'selected="selected"':'') . ">" . $this->geolocation_providers[$key] . "</option>";
+								}
+					echo "		</select>
+							</td>
+						</tr>";
+
+				}
+
 				echo "<tr>
-						<th scope='row'>Api Key</th>
+						<th scope='row'>IPStack Api Key</th>
 						<td>
 							<input type='text' name='wpml_ipstack_redirect_api_key' value='{$this->api_key}' class='regular-text' style='width: 300px;' />
 							<p class='description'>Signup on <a href='https://ipstack.com/' target='blank'>ipstack.com</a> to get you Api Key</p>

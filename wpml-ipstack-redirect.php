@@ -13,6 +13,7 @@ class WPML_IPStack_Redirect
 {
 
 	private $client_geolocation_details = false;
+	private $geolocation_provider = false;
 
 	/**
 	 * Initialize
@@ -29,7 +30,7 @@ class WPML_IPStack_Redirect
 
 	function digest_post_data(){
 
-		if ( isset( $_POST['wpml_ipstack_redirect_api_key'] )  ) {
+		if ( isset( $_POST['wpml_ipstack_redirect_api_key'] ) ) {
 
 			$location = 'options-general.php?page=wpml_ipstack_redirect_settings';
 
@@ -39,6 +40,9 @@ class WPML_IPStack_Redirect
 
 			// Save in DB and redirect
 			update_option( 'wpml_ipstack_redirect_api_key' , trim( $_POST['wpml_ipstack_redirect_api_key'] ) );
+
+			$geo_provider = isset($_POST['wpml_ipstack_redirect_geolocation_provider'])?$_POST['wpml_ipstack_redirect_geolocation_provider']:'IPStack';
+			update_option( 'wpml_ipstack_redirect_geolocation_provider' , trim($geo_provider) );
 
 			$this->redirect_user( $location . '&feedback=success' );
 		}
@@ -60,10 +64,11 @@ class WPML_IPStack_Redirect
 		$this->set_wp_options_with_default_values_if_necessary();
 
 		$api_key = get_option( 'wpml_ipstack_redirect_api_key' );
+		$geo_provider = get_option( 'wpml_ipstack_redirect_geolocation_provider' );
 
 		include 'wpml-ipstack-redirect-admin-page.class.php';
 
-		$admin_page = new WPML_IPStack_Redirect_Admin_Page( $api_key );
+		$admin_page = new WPML_IPStack_Redirect_Admin_Page( $api_key, $geo_provider );
 		$admin_page->display_wpml_ipstack_redirect_admin_page();
 
 	}
@@ -112,6 +117,290 @@ class WPML_IPStack_Redirect
 		return $_SERVER['REMOTE_ADDR'];
 	}
 
+	function get_language_code_by_country_code($code = 'US') {
+
+		# http://wiki.openstreetmap.org/wiki/Nominatim/Country_Codes
+		$arr = array(
+			'ad' => 'ca',
+			'ae' => 'ar',
+			'af' => 'fa',
+			'ag' => 'en',
+			'ai' => 'en',
+			'al' => 'sq',
+			'am' => 'hy',
+			'an' => 'nl',
+			'ao' => 'pt',
+			'aq' => 'en',
+			'ar' => 'es',
+			'as' => 'en',
+			'at' => 'de',
+			'au' => 'en',
+			'aw' => 'nl',
+			'ax' => 'sv',
+			'az' => 'az',
+			'ba' => 'bs',
+			'bb' => 'en',
+			'bd' => 'bn',
+			'be' => 'nl',
+			'bf' => 'fr',
+			'bg' => 'bg',
+			'bh' => 'ar',
+			'bi' => 'fr',
+			'bj' => 'fr',
+			'bl' => 'fr',
+			'bm' => 'en',
+			'bn' => 'ms',
+			'bo' => 'es',
+			'br' => 'pt',
+			'bq' => 'nl',
+			'bs' => 'en',
+			'bt' => 'dz',
+			'bv' => 'no',
+			'bw' => 'en',
+			'by' => 'be',
+			'bz' => 'en',
+			'ca' => 'en',
+			'cc' => 'en',
+			'cd' => 'fr',
+			'cf' => 'fr',
+			'cg' => 'fr',
+			'ch' => 'de',
+			'ci' => 'fr',
+			'ck' => 'en',
+			'cl' => 'es',
+			'cm' => 'fr',
+			'cn' => 'zh',
+			'co' => 'es',
+			'cr' => 'es',
+			'cu' => 'es',
+			'cv' => 'pt',
+			'cw' => 'nl',
+			'cx' => 'en',
+			'cy' => 'el',
+			'cz' => 'cs',
+			'de' => 'de',
+			'dj' => 'fr',
+			'dk' => 'da',
+			'dm' => 'en',
+			'do' => 'es',
+			'dz' => 'ar',
+			'ec' => 'es',
+			'ee' => 'et',
+			'eg' => 'ar',
+			'eh' => 'ar',
+			'er' => 'ti',
+			'es' => 'es',
+			'et' => 'am',
+			'fi' => 'fi',
+			'fj' => 'en',
+			'fk' => 'en',
+			'fm' => 'en',
+			'fo' => 'fo',
+			'fr' => 'fr',
+			'ga' => 'fr',
+			'gb' => 'en',
+			'gd' => 'en',
+			'ge' => 'ka',
+			'gf' => 'fr',
+			'gg' => 'en',
+			'gh' => 'en',
+			'gi' => 'en',
+			'gl' => 'kl',
+			'gm' => 'en',
+			'gn' => 'fr',
+			'gp' => 'fr',
+			'gq' => 'es',
+			'gr' => 'el',
+			'gs' => 'en',
+			'gt' => 'es',
+			'gu' => 'en',
+			'gw' => 'pt',
+			'gy' => 'en',
+			'hk' => 'zh',
+			'hm' => 'en',
+			'hn' => 'es',
+			'hr' => 'hr',
+			'ht' => 'fr',
+			'hu' => 'hu',
+			'id' => 'id',
+			'ie' => 'en',
+			'il' => 'he',
+			'im' => 'en',
+			'in' => 'hi',
+			'io' => 'en',
+			'iq' => 'ar',
+			'ir' => 'fa',
+			'is' => 'is',
+			'it' => 'it',
+			'je' => 'en',
+			'jm' => 'en',
+			'jo' => 'ar',
+			'jp' => 'ja',
+			'ke' => 'sw',
+			'kg' => 'ky',
+			'kh' => 'km',
+			'ki' => 'en',
+			'km' => 'ar',
+			'kn' => 'en',
+			'kp' => 'ko',
+			'kr' => 'ko',
+			'kw' => 'ar',
+			'ky' => 'en',
+			'kz' => 'kk',
+			'la' => 'lo',
+			'lb' => 'ar',
+			'lc' => 'en',
+			'li' => 'de',
+			'lk' => 'si',
+			'lr' => 'en',
+			'ls' => 'en',
+			'lt' => 'lt',
+			'lu' => 'lb',
+			'lv' => 'lv',
+			'ly' => 'ar',
+			'ma' => 'ar',
+			'mc' => 'fr',
+			'md' => 'ru',
+			'me' => 'srp',
+			'mf' => 'fr',
+			'mg' => 'mg',
+			'mh' => 'en',
+			'mk' => 'mk',
+			'ml' => 'fr',
+			'mm' => 'my',
+			'mn' => 'mn',
+			'mo' => 'zh',
+			'mp' => 'ch',
+			'mq' => 'fr',
+			'mr' => 'ar',
+			'ms' => 'en',
+			'mt' => 'mt',
+			'mu' => 'mfe',
+			'mv' => 'dv',
+			'mw' => 'en',
+			'mx' => 'es',
+			'my' => 'ms',
+			'mz' => 'pt',
+			'na' => 'en',
+			'nc' => 'fr',
+			'ne' => 'fr',
+			'nf' => 'en',
+			'ng' => 'en',
+			'ni' => 'es',
+			'nl' => 'nl',
+			'no' => 'nb',
+			'np' => 'ne',
+			'nr' => 'na',
+			'nu' => 'niu',
+			'nz' => 'en',
+			'om' => 'ar',
+			'pa' => 'es',
+			'pe' => 'es',
+			'pf' => 'fr',
+			'pg' => 'en',
+			'ph' => 'en',
+			'pk' => 'en',
+			'pl' => 'pl',
+			'pm' => 'fr',
+			'pn' => 'en',
+			'pr' => 'es',
+			'ps' => 'ar',
+			'pt' => 'pt',
+			'pw' => 'en',
+			'py' => 'es',
+			'qa' => 'ar',
+			're' => 'fr',
+			'ro' => 'ro',
+			'rs' => 'sr',
+			'ru' => 'ru',
+			'rw' => 'rw',
+			'sa' => 'ar',
+			'sb' => 'en',
+			'sc' => 'fr',
+			'sd' => 'ar',
+			'se' => 'sv',
+			'sg' => 'en',
+			'sh' => 'en',
+			'si' => 'sl',
+			'sj' => 'no',
+			'sk' => 'sk',
+			'sl' => 'en',
+			'sm' => 'it',
+			'sn' => 'fr',
+			'so' => 'so',
+			'sr' => 'nl',
+			'st' => 'pt',
+			'ss' => 'en',
+			'sv' => 'es',
+			'sx' => 'nl',
+			'sy' => 'ar',
+			'sz' => 'en',
+			'tc' => 'en',
+			'td' => 'fr',
+			'tf' => 'fr',
+			'tg' => 'fr',
+			'th' => 'th',
+			'tj' => 'tg',
+			'tk' => 'tkl',
+			'tl' => 'pt',
+			'tm' => 'tk',
+			'tn' => 'ar',
+			'to' => 'en',
+			'tr' => 'tr',
+			'tt' => 'en',
+			'tv' => 'en',
+			'tw' => 'zh',
+			'tz' => 'sw',
+			'ua' => 'uk',
+			'ug' => 'en',
+			'um' => 'en',
+			'us' => 'en',
+			'uy' => 'es',
+			'uz' => 'uz',
+			'va' => 'it',
+			'vc' => 'en',
+			've' => 'es',
+			'vg' => 'en',
+			'vi' => 'en',
+			'vn' => 'vi',
+			'vu' => 'bi',
+			'wf' => 'fr',
+			'ws' => 'sm',
+			'ye' => 'ar',
+			'yt' => 'fr',
+			'za' => 'zu',
+			'zm' => 'en',
+			'zw' => 'end'
+		);
+
+		if ( isset($arr[strtolower($code)]) ) {
+			$language = $arr[strtolower($code)];
+		}
+		else {
+			$language = 'en';
+		}
+
+		return apply_filters( 'WPML_IPStack_Redirect_get_language_code_by_country_code', $language, $code, $arr );
+	}
+
+	function get_geolocation_provider() {
+		if ( class_exists('WC_Geolocation') ) {
+			$geo_provider = get_option( 'wpml_ipstack_redirect_geolocation_provider' );
+
+			switch ($geo_provider) {
+				case 'WC_Geolocation':
+				case 'IPStack':
+					return $geo_provider;
+					break;
+
+				default:
+					return 'IPStack';
+			}
+		}
+
+		return 'IPStack';
+	}
+
 	function get_client_geolocation_details() {
 		$ip = $this->get_client_ip();
 		$api_key = $this->get_api_key();
@@ -120,7 +409,18 @@ class WPML_IPStack_Redirect
 			return $this->client_geolocation_details;
 		}
 
-		$this->client_geolocation_details = json_decode(file_get_contents("http://api.ipstack.com/{$ip}?access_key={$api_key}&format=1"));
+		switch ($this->get_geolocation_provider()) {
+			case 'WC_Geolocation':
+				$this->geolocation_provider = 'WC_Geolocation';
+				$this->client_geolocation_details = WC_Geolocation::geolocate_ip();
+				break;
+
+			case 'IPStack':
+			default:
+				$this->geolocation_provider = 'IPStack';
+				$this->client_geolocation_details = json_decode(file_get_contents("http://api.ipstack.com/{$ip}?access_key={$api_key}&format=1"));
+				break;
+		}
 
 		return $this->client_geolocation_details;
 	}
@@ -128,21 +428,42 @@ class WPML_IPStack_Redirect
 	function get_country_code_by_ip() {
 		$details = $this->get_client_geolocation_details();
 
-		return strtolower($details->country_code);
+		switch ($this->geolocation_provider) {
+			case 'WC_Geolocation':
+				$country_code = strtolower($details['country']);
+				break;
+
+			case 'IPStack':
+			default:
+				$country_code = strtolower($details->country_code);
+				break;
+		}
+
+		return apply_filters( 'WPML_IPStack_Redirect_get_country_code_by_ip', $country_code );
 	}
 
 	function get_language_code_by_ip() {
 		$details = $this->get_client_geolocation_details();
 
-		if ( !is_array($details->location->languages) ) {
-			return false;
+		switch ($this->geolocation_provider) {
+			case 'WC_Geolocation':
+				$language_code = $this->get_language_code_by_country_code($details['country']);
+				break;
+
+			case 'IPStack':
+			default:
+				if ( !is_array($details->location->languages) ) {
+					$language_code = false;
+				}
+
+				foreach ($details->location->languages as $lang) {
+					$language_code = strtolower($lang->code);
+				}
+				break;
 		}
 
-		foreach ($details->location->languages as $lang) {
-			return strtolower($lang->code);
-		}
 
-		return false;
+		return apply_filters( 'WPML_IPStack_Redirect_get_language_code_by_ip', $language_code );
 	}
 
 	function redirect_ip_country() {
