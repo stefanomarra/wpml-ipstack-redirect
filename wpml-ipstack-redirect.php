@@ -20,11 +20,13 @@ class WPML_IPStack_Redirect
 	 */
 	function __construct() {
 
-		add_action('template_redirect', array( &$this, 'redirect_ip_country') );
 
 		if ( is_admin() ) {
 			add_action( 'admin_menu', array( $this, 'add_admin_page' ) );
 			add_action( 'admin_menu', array( $this, 'digest_post_data' ) );
+		}
+		else {
+			add_action('template_redirect', array( &$this, 'redirect_ip_country') );
 		}
 	}
 
@@ -466,6 +468,20 @@ class WPML_IPStack_Redirect
 		return apply_filters( 'WPML_IPStack_Redirect_get_language_code_by_ip', $language_code );
 	}
 
+	function is_check_cookie_valid() {
+		if ( !isset($_COOKIE['icl_ip_to_country_check']) ) {
+			return false;
+		}
+
+		$values = explode("|", $_COOKIE["icl_ip_to_country_check"]);
+
+		if ( !isset($values[1]) ) {
+			return false;
+		}
+
+		return $values[0];
+	}
+
 	function redirect_ip_country() {
 		global $wpdb, $post, $sitepress, $sitepress_settings;
 
@@ -490,7 +506,7 @@ class WPML_IPStack_Redirect
 		/**
 		 * No Cookies are set yet
 		 */
-		if ( !isset($_COOKIE['icl_ip_to_country_check']) || !isset($_COOKIE['icl_ip_to_country_lang']) ) {
+		if ( !$this->is_check_cookie_valid() || !isset($_COOKIE['icl_ip_to_country_lang']) ) {
 
 			// Grab the language code from ip e.g. es
 			$lang_code_from_ip = $this->get_language_code_by_ip();
@@ -509,10 +525,12 @@ class WPML_IPStack_Redirect
 			// if ($sitepress->get_current_language() != $lang_code_from_ip){
 			// 	$url = $sitepress->convert_url(get_permalink($post->ID), $lang_code_from_ip);
 			// }
+			$expiry = time() + ($sitepress_settings['remember_language']*HOUR_IN_SECONDS);
+			$value = 'checked|' . $expiry;
 
 			// Now lets set a browser cookie and do the redirect
-			setcookie('icl_ip_to_country_check','checked', time()+($sitepress_settings['remember_language']*HOUR_IN_SECONDS), COOKIEPATH, COOKIE_DOMAIN);
-			setcookie('icl_ip_to_country_lang', $lang_code_from_ip, time()+($sitepress_settings['remember_language']*HOUR_IN_SECONDS), COOKIEPATH, COOKIE_DOMAIN);
+			setcookie('icl_ip_to_country_check', $value, $expiry, COOKIEPATH, COOKIE_DOMAIN);
+			setcookie('icl_ip_to_country_lang', $lang_code_from_ip, $expiry, COOKIEPATH, COOKIE_DOMAIN);
 
 			// If language is set, redirect to that url
 			if ( isset($language_urls[$lang_code_from_ip]) ) {
