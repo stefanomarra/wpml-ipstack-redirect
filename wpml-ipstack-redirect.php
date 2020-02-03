@@ -12,6 +12,9 @@ License: GPL2
 class WPML_IPStack_Redirect
 {
 
+	const GEO_PROVIDER_WC = 'WC_Geolocation';
+	const GEO_PROVIDER_IPSTACK = 'IPStack';
+
 	private $client_geolocation_details = false;
 	private $geolocation_provider = false;
 
@@ -390,17 +393,17 @@ class WPML_IPStack_Redirect
 			$geo_provider = get_option( 'wpml_ipstack_redirect_geolocation_provider' );
 
 			switch ($geo_provider) {
-				case 'WC_Geolocation':
-				case 'IPStack':
+				case self::GEO_PROVIDER_WC:
+				case self::GEO_PROVIDER_IPSTACK:
 					return $geo_provider;
 					break;
 
 				default:
-					return 'IPStack';
+					return self::GEO_PROVIDER_IPSTACK;
 			}
 		}
 
-		return 'IPStack';
+		return self::GEO_PROVIDER_IPSTACK;
 	}
 
 	function get_client_geolocation_details() {
@@ -412,14 +415,14 @@ class WPML_IPStack_Redirect
 		}
 
 		switch ($this->get_geolocation_provider()) {
-			case 'WC_Geolocation':
-				$this->geolocation_provider = 'WC_Geolocation';
+			case self::GEO_PROVIDER_WC:
+				$this->geolocation_provider = self::GEO_PROVIDER_WC;
 				$this->client_geolocation_details = WC_Geolocation::geolocate_ip();
 				break;
 
-			case 'IPStack':
+			case self::GEO_PROVIDER_IPSTACK:
 			default:
-				$this->geolocation_provider = 'IPStack';
+				$this->geolocation_provider = self::GEO_PROVIDER_IPSTACK;
 				$this->client_geolocation_details = json_decode(file_get_contents("http://api.ipstack.com/{$ip}?access_key={$api_key}&format=1"));
 				break;
 		}
@@ -431,11 +434,11 @@ class WPML_IPStack_Redirect
 		$details = $this->get_client_geolocation_details();
 
 		switch ($this->geolocation_provider) {
-			case 'WC_Geolocation':
+			case self::GEO_PROVIDER_WC:
 				$country_code = strtolower($details['country']);
 				break;
 
-			case 'IPStack':
+			case self::GEO_PROVIDER_IPSTACK:
 			default:
 				$country_code = strtolower($details->country_code);
 				break;
@@ -448,11 +451,11 @@ class WPML_IPStack_Redirect
 		$details = $this->get_client_geolocation_details();
 
 		switch ($this->geolocation_provider) {
-			case 'WC_Geolocation':
+			case self::GEO_PROVIDER_WC:
 				$language_code = $this->get_language_code_by_country_code($details['country']);
 				break;
 
-			case 'IPStack':
+			case self::GEO_PROVIDER_IPSTACK:
 			default:
 				if ( !is_array($details->location->languages) ) {
 					$language_code = false;
@@ -482,11 +485,30 @@ class WPML_IPStack_Redirect
 		return $values[0];
 	}
 
+	function redirect($url = null, $client_lang = null) {
+
+		if ( apply_filters( 'WPML_IPStack_Redirect_should_redirect', true, $url, $client_lang ) ) {
+			wp_safe_redirect( apply_filters( 'WPML_IPStack_Redirect_redirect', $url, $client_lang ) );
+		}
+	}
+
 	function redirect_ip_country() {
 		global $wpdb, $post, $sitepress, $sitepress_settings;
 
-		if ( !$this->get_api_key() ) {
-			return;
+		switch ($this->get_geolocation_provider()) {
+			case self::GEO_PROVIDER_IPSTACK:
+				if ( !$this->get_api_key() ) {
+					return;
+				}
+				break;
+
+			case self::GEO_PROVIDER_WC:
+				if ( !class_exists('WC_Geolocation') ) {
+					return;
+				}
+				break;
+
+			default:
 		}
 
 		$args['skip_missing'] = intval($sitepress_settings['automatic_redirect'] == 1);
@@ -534,12 +556,13 @@ class WPML_IPStack_Redirect
 
 			// If language is set, redirect to that url
 			if ( isset($language_urls[$lang_code_from_ip]) ) {
-				wp_safe_redirect( $language_urls[$lang_code_from_ip] );
+				$this->redirect( $language_urls[$lang_code_from_ip], $lang_code_from_ip );
 			}
 
 			// Language not found, redirect to default language
 			else {
-				wp_safe_redirect( $language_urls[$sitepress->get_default_language()] );
+				$default_post_lang = $sitepress->get_default_language();
+				$this->redirect( $language_urls[$default_post_lang], $lang_code_from_ip );
 			}
 		}
 
@@ -565,7 +588,7 @@ class WPML_IPStack_Redirect
 			 * If the current post language is different then the user language then redirect
 			 */
 			if ( $lang_code_from_ip != $post_language_code && $current_post_url != $user_lang_post_url ) {
-				wp_safe_redirect( $user_lang_post_url );
+				$this->redirect( $user_lang_post_url, $lang_code_from_ip );
 			}
 		}
 	}
