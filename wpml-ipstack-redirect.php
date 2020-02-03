@@ -33,7 +33,27 @@ class WPML_IPStack_Redirect
 		}
 	}
 
-	function digest_post_data(){
+	public static function setCookie($lang = null) {
+		global $sitepress_settings;
+
+		$expiry = time() + ($sitepress_settings['remember_language']*HOUR_IN_SECONDS);
+		$value = 'checked|' . $expiry;
+
+		setcookie('icl_ip_to_country_check', $value, $expiry, COOKIEPATH, COOKIE_DOMAIN);
+		self::setLanguageCookie($lang, $expiry);
+	}
+
+	public static function setLanguageCookie($lang = null, $expiry = null) {
+		global $sitepress_settings;
+
+		if ( !$expiry ) {
+			$expiry = time() + ($sitepress_settings['remember_language']*HOUR_IN_SECONDS);
+		}
+
+		setcookie('icl_ip_to_country_lang', $lang, $expiry, COOKIEPATH, COOKIE_DOMAIN);
+	}
+
+	function digest_post_data() {
 
 		if ( isset( $_POST['wpml_ipstack_redirect_api_key'] ) ) {
 
@@ -547,12 +567,9 @@ class WPML_IPStack_Redirect
 			// if ($sitepress->get_current_language() != $lang_code_from_ip){
 			// 	$url = $sitepress->convert_url(get_permalink($post->ID), $lang_code_from_ip);
 			// }
-			$expiry = time() + ($sitepress_settings['remember_language']*HOUR_IN_SECONDS);
-			$value = 'checked|' . $expiry;
 
 			// Now lets set a browser cookie and do the redirect
-			setcookie('icl_ip_to_country_check', $value, $expiry, COOKIEPATH, COOKIE_DOMAIN);
-			setcookie('icl_ip_to_country_lang', $lang_code_from_ip, $expiry, COOKIEPATH, COOKIE_DOMAIN);
+			self::setCookie($lang_code_from_ip);
 
 			// If language is set, redirect to that url
 			if ( isset($language_urls[$lang_code_from_ip]) ) {
@@ -562,7 +579,9 @@ class WPML_IPStack_Redirect
 			// Language not found, redirect to default language
 			else {
 				$default_post_lang = $sitepress->get_default_language();
-				$this->redirect( $language_urls[$default_post_lang], $lang_code_from_ip );
+				if (isset($language_urls[$default_post_lang])) {
+					$this->redirect( $language_urls[$default_post_lang], $lang_code_from_ip );
+				}
 			}
 		}
 
