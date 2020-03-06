@@ -3,7 +3,7 @@
 Plugin Name: WPML IPStack Redirect
 Plugin URI: https://www.stefanomarra.com
 Description: Redirects users to their appropriate languages by utilizing third-party service ipstack.com
-Version: 1.0
+Version: 1.0.1
 Author: Stefano Marra
 Author URI: https://www.stefanomarra.com
 License: GPL2
