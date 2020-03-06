@@ -64,10 +64,13 @@ class WPML_IPStack_Redirect
 			}
 
 			// Save in DB and redirect
-			update_option( 'wpml_ipstack_redirect_api_key' , trim( $_POST['wpml_ipstack_redirect_api_key'] ) );
+			update_option( 'wpml_ipstack_redirect_api_key' , sanitize_text_field( trim( $_POST['wpml_ipstack_redirect_api_key'] ) ) );
 
 			$geo_provider = isset($_POST['wpml_ipstack_redirect_geolocation_provider'])?$_POST['wpml_ipstack_redirect_geolocation_provider']:'IPStack';
-			update_option( 'wpml_ipstack_redirect_geolocation_provider' , trim($geo_provider) );
+			update_option( 'wpml_ipstack_redirect_geolocation_provider' , sanitize_text_field( trim($geo_provider) ) );
+
+			$avoid_post_missing_redirect = isset($_POST['wpml_ipstack_redirect_avoid_post_missing_redirect'])?$_POST['wpml_ipstack_redirect_avoid_post_missing_redirect']:'off';
+			update_option( 'wpml_ipstack_redirect_avoid_post_missing_redirect' , sanitize_text_field( trim( $avoid_post_missing_redirect ) ) );
 
 			$this->redirect_user( $location . '&feedback=success' );
 		}
@@ -90,10 +93,11 @@ class WPML_IPStack_Redirect
 
 		$api_key = get_option( 'wpml_ipstack_redirect_api_key' );
 		$geo_provider = get_option( 'wpml_ipstack_redirect_geolocation_provider' );
+		$fallback_redirect = get_option( 'wpml_ipstack_redirect_avoid_post_missing_redirect' );
 
 		include 'wpml-ipstack-redirect-admin-page.class.php';
 
-		$admin_page = new WPML_IPStack_Redirect_Admin_Page( $api_key, $geo_provider );
+		$admin_page = new WPML_IPStack_Redirect_Admin_Page( $api_key, $geo_provider, $fallback_redirect );
 		$admin_page->display_wpml_ipstack_redirect_admin_page();
 
 	}
@@ -120,6 +124,10 @@ class WPML_IPStack_Redirect
 
 	function get_api_key() {
 		return apply_filters( 'wpml_ipstack_redirect_get_api_key', get_option('wpml_ipstack_redirect_api_key') );
+	}
+
+	function get_avoid_post_missing_redirect() {
+		return apply_filters( 'wpml_ipstack_redirect_get_avoid_post_missing_redirect', get_option('wpml_ipstack_redirect_avoid_post_missing_redirect') );
 	}
 
 	function force_redirect() {
@@ -535,7 +543,10 @@ class WPML_IPStack_Redirect
 		$languages = apply_filters( 'wpml_active_languages', null, $args );
 		$language_urls = array();
 		foreach($languages as $language) {
-			$language_urls[$language['language_code']] = $language['url'];
+			$language_urls[$language['language_code']] = array(
+				'url' => $language['url'],
+				'missing' => isset($language['missing'])?$language['missing']:true
+			);
 		}
 
 		// echo '<pre>';
@@ -573,14 +584,20 @@ class WPML_IPStack_Redirect
 
 			// If language is set, redirect to that url
 			if ( isset($language_urls[$lang_code_from_ip]) ) {
-				$this->redirect( $language_urls[$lang_code_from_ip], $lang_code_from_ip );
+				if (!$language_urls[$lang_code_from_ip]['missing'] || ($language_urls[$lang_code_from_ip]['missing'] && $this->get_avoid_post_missing_redirect()!=='on')) {
+					$this->redirect( $language_urls[$lang_code_from_ip]['url'], $lang_code_from_ip );
+				}
+				// post missing in user lang
 			}
 
 			// Language not found, redirect to default language
 			else {
 				$default_post_lang = $sitepress->get_default_language();
 				if (isset($language_urls[$default_post_lang])) {
-					$this->redirect( $language_urls[$default_post_lang], $lang_code_from_ip );
+					if (!$language_urls[$default_post_lang]['missing'] || ($language_urls[$default_post_lang]['missing'] && $this->get_avoid_post_missing_redirect()!=='on')) {
+						$this->redirect( $language_urls[$default_post_lang]['url'], $lang_code_from_ip );
+					}
+					// post missing in user lang
 				}
 			}
 		}
@@ -593,8 +610,9 @@ class WPML_IPStack_Redirect
 			$lang_code_from_ip = $_COOKIE['icl_ip_to_country_lang'];
 			$post_language_code = ICL_LANGUAGE_CODE;
 
-			$current_post_url = isset($language_urls[$post_language_code])?$language_urls[$post_language_code]:false;
-			$user_lang_post_url = isset($language_urls[$lang_code_from_ip])?$language_urls[$lang_code_from_ip]:false;
+			$current_post_url = isset($language_urls[$post_language_code])?$language_urls[$post_language_code]['url']:false;
+			$user_lang_post_url = isset($language_urls[$lang_code_from_ip])?$language_urls[$lang_code_from_ip]['url']:false;
+			$user_lang_post_missing = isset($language_urls[$lang_code_from_ip])?$language_urls[$lang_code_from_ip]['missing']:true;
 
 			// echo '<pre>';
 			// var_dump($lang_code_from_ip);
@@ -607,7 +625,13 @@ class WPML_IPStack_Redirect
 			 * If the current post language is different then the user language then redirect
 			 */
 			if ( $lang_code_from_ip != $post_language_code && $current_post_url != $user_lang_post_url ) {
-				$this->redirect( $user_lang_post_url, $lang_code_from_ip );
+
+				if (!$user_lang_post_missing || ($user_lang_post_missing && $this->get_avoid_post_missing_redirect()!=='on')) {
+					$this->redirect( $user_lang_post_url, $lang_code_from_ip );
+				}
+
+				// post missing in user lang
+
 			}
 		}
 	}

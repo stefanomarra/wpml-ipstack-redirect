@@ -6,11 +6,13 @@ class WPML_IPStack_Redirect_Admin_Page
 	var $api_key;
 	var $default_language;
 	var $geolocation_providers;
+	var $avoid_post_missing_redirect;
 
 
-	function __construct( $api_key, $geolocation_provider = null ){
+	function __construct( $api_key, $geolocation_provider = null, $avoid_post_missing_redirect = 'no' ){
 		$this->api_key = $api_key;
 		$this->geolocation_provider = $geolocation_provider;
+		$this->avoid_post_missing_redirect = $avoid_post_missing_redirect;
 
 		$this->geolocation_providers = [
 			'IPStack' => 'IPStack'
@@ -54,6 +56,14 @@ class WPML_IPStack_Redirect_Admin_Page
 						<td>
 							<input type='text' name='wpml_ipstack_redirect_api_key' value='{$this->api_key}' class='regular-text' style='width: 300px;' />
 							<p class='description'>Signup on <a href='https://ipstack.com/' target='blank'>ipstack.com</a> to get you Api Key</p>
+						</td>
+					</tr>";
+
+				echo "<tr>
+						<th scope='row'>Avoid Post Missing Redirection</th>
+						<td>
+							<input type='checkbox' name='wpml_ipstack_redirect_avoid_post_missing_redirect' class='regular-text' " . ($this->avoid_post_missing_redirect==='on'?'checked="checked"':'') . " />
+							<p class='description'>Avoid to redirect the user if the post is not available in the user country language. This will change the user default user language</p>
 						</td>
 					</tr>";
 				echo "</table>";
